@@ -12,6 +12,3 @@ const PlaceholderPage = ({ title, subtitle }: { title: string; subtitle: string 
 
 export const PanitiaPage = () => <PlaceholderPage title="Panitia" subtitle="Manajemen data panitia qurban" />;
 export const KeuanganPage = () => <PlaceholderPage title="Keuangan" subtitle="Buku kas & laporan keuangan" />;
-export const MustahiqPage = () => <PlaceholderPage title="Mustahiq & Kupon" subtitle="Kelola penerima daging qurban" />;
-export const DistribusiPage = () => <PlaceholderPage title="Distribusi" subtitle="Monitor distribusi hari H" />;
-export const LaporanPage = () => <PlaceholderPage title="Laporan" subtitle="Export laporan PDF" />;

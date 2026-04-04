@@ -10,8 +10,13 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import HewanList from "./pages/HewanList";
 import HewanTambah from "./pages/HewanTambah";
+import HewanDetail from "./pages/HewanDetail";
 import ShohibulList from "./pages/ShohibulList";
-import { PanitiaPage, KeuanganPage, MustahiqPage, DistribusiPage, LaporanPage } from "./pages/PlaceholderPages";
+import AkadPage from "./pages/AkadPage";
+import MustahiqPage from "./pages/MustahiqPage";
+import LaporanPage from "./pages/LaporanPage";
+import DistribusiPage from "./pages/DistribusiPage";
+import { PanitiaPage, KeuanganPage } from "./pages/PlaceholderPages";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,10 +38,12 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/akad/:shohibulId" element={<AkadPage />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
             <Route path="/hewan" element={<ProtectedLayout><HewanList /></ProtectedLayout>} />
             <Route path="/hewan/tambah" element={<ProtectedLayout><HewanTambah /></ProtectedLayout>} />
+            <Route path="/hewan/:id" element={<ProtectedLayout><HewanDetail /></ProtectedLayout>} />
             <Route path="/shohibul" element={<ProtectedLayout><ShohibulList /></ProtectedLayout>} />
             <Route path="/panitia" element={<ProtectedLayout><PanitiaPage /></ProtectedLayout>} />
             <Route path="/keuangan" element={<ProtectedLayout><KeuanganPage /></ProtectedLayout>} />

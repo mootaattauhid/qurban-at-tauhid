@@ -141,11 +141,10 @@ const MustahiqPage = () => {
       scanner.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decoded: string) => {
-          scanner.stop().then(() => {
-            scannerRef.current = null;
-            scanMutation.mutate(decoded);
-          });
+        async (decoded: string) => {
+          await scanner.stop();
+          scannerRef.current = null;
+          scanMutation.mutate(decoded);
         },
         () => {}
       ).then(() => {

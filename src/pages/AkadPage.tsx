@@ -77,6 +77,7 @@ const AkadPage = () => {
     );
   }
 
+  // Already completed
   if (shohibul.akad_dilakukan && !success) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -96,6 +97,7 @@ const AkadPage = () => {
 
   const hewan = shohibul?.hewan_qurban as any;
 
+  // Success screen
   if (success) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -117,11 +119,9 @@ const AkadPage = () => {
     );
   }
 
-  // hewan already declared above
   const isKambing = hewan?.jenis_hewan === "kambing";
   const isSapiKolektif = hewan?.jenis_hewan === "sapi" && hewan?.tipe_kepemilikan === "kolektif";
   const isSapiIndividu = hewan?.jenis_hewan === "sapi" && hewan?.tipe_kepemilikan === "individu";
-
   const requestedParts = requestBagian?.map((r) => r.bagian) ?? [];
 
   const getTitle = () => {
@@ -131,15 +131,22 @@ const AkadPage = () => {
   };
 
   const getPoin4 = () => {
-    if (isKambing || isSapiIndividu) {
-      const defaultParts = "separuh badan (mulai paha kanan belakang hingga paha kanan depan), hati, jantung, paru-paru, ginjal, limpa, lambung (babat), kepala, empat tulang kaki, dan lainnya";
-      const extra = requestedParts.length > 0 ? `. Request tambahan: ${requestedParts.join(", ")}` : "";
-      return `Shohibul Qurban membawa: ${defaultParts}${extra}.`;
+    if (isKambing) {
+      const base = "Shohibul Qurban membawa: separuh badan (mulai paha kanan belakang hingga paha kanan depan), hati, jantung, paru-paru, ginjal, limpa, lambung (babat), kepala, empat tulang kaki, dan lainnya.";
+      const extra = requestedParts.length > 0 ? ` Termasuk: ${requestedParts.join(", ")}.` : "";
+      return base + extra;
     }
+    if (isSapiKolektif) {
+      const requestInfo = requestedParts.length > 0
+        ? `Bagian yang Anda request: ${requestedParts.join(", ")}.`
+        : "Anda belum mengajukan request bagian.";
+      return `Shohibul Qurban mendapatkan 1/7 bagian daging bersih. Bagian lainnya (jeroan, kepala, kulit, ekor, kaki, tulang) dibagi sesuai request yang telah diajukan. ${requestInfo} Bagian yang tidak di-request oleh siapapun menjadi hak mustahiq.`;
+    }
+    // Sapi individu
     const requestInfo = requestedParts.length > 0
-      ? `Bagian yang di-request: ${requestedParts.join(", ")}.`
-      : "Tidak ada bagian tambahan yang di-request.";
-    return `Shohibul Qurban mendapatkan 1/7 bagian daging bersih. Bagian lainnya (jeroan, kepala, kulit, ekor, kaki, tulang) dibagi sesuai request. ${requestInfo} Bagian yang tidak di-request oleh siapapun menjadi hak mustahiq.`;
+      ? `Bagian yang Anda request: ${requestedParts.join(", ")}.`
+      : "Semua bagian akan diserahkan ke Anda.";
+    return `Shohibul Qurban membawa keseluruhan daging dan bagian hewan kecuali yang secara sukarela disedekahkan. ${requestInfo}`;
   };
 
   const getPoin5 = () => {
@@ -155,7 +162,7 @@ const AkadPage = () => {
 
   const poinList = [
     "Shohibul Qurban adalah pemilik hewan kurban, dan panitia bertindak sebagai wakil dari Shohibul Qurban.",
-    isKambing ? "Shohibul Qurban mencari sendiri hewan kurbannya." : "Shohibul Qurban mencari sendiri hewan kurbannya.",
+    "Shohibul Qurban mencari sendiri hewan kurbannya.",
     "Shohibul Qurban mewakilkan kepada panitia untuk mengurus hewan kurban, mulai dari penyembelihan, pengulitan, hingga proses selanjutnya.",
     getPoin4(),
     getPoin5(),
@@ -182,7 +189,7 @@ const AkadPage = () => {
               <li
                 key={idx}
                 className={`text-sm leading-relaxed p-3 rounded-lg ${
-                  idx === 3 ? "bg-yellow-50 border border-yellow-200" : "bg-muted/30"
+                  idx === 3 ? "bg-yellow-50 border border-yellow-200 dark:bg-yellow-950/30 dark:border-yellow-800" : "bg-muted/30"
                 }`}
               >
                 <span className="font-bold text-primary mr-2">{idx + 1}.</span>
@@ -197,16 +204,12 @@ const AkadPage = () => {
 
           <div className="border-t pt-4 space-y-4">
             <label className="flex items-start gap-3 cursor-pointer">
-              <Checkbox
-                checked={agreed}
-                onCheckedChange={(v) => setAgreed(!!v)}
-                className="mt-0.5"
-              />
+              <Checkbox checked={agreed} onCheckedChange={(v) => setAgreed(!!v)} className="mt-0.5" />
               <span className="text-sm">Saya telah membaca dan memahami poin-poin di atas</span>
             </label>
 
             <Button
-              className="w-full h-12 text-base"
+              className="w-full h-12 text-base bg-primary hover:bg-primary/90"
               disabled={!agreed || approveMutation.isPending}
               onClick={() => approveMutation.mutate()}
             >

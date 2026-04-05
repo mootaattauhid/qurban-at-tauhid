@@ -262,6 +262,10 @@ const MustahiqPage = () => {
               </Select>
             </div>
             <div className="space-y-2">
+              <Label>Nama Penyalur</Label>
+              <Input value={formPenyalur} onChange={(e) => setFormPenyalur(e.target.value)} placeholder="Opsional" />
+            </div>
+            <div className="space-y-2">
               <Label>Keterangan</Label>
               <Input value={formKeterangan} onChange={(e) => setFormKeterangan(e.target.value)} />
             </div>

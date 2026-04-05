@@ -13,9 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Edit2, Trash2, Phone } from "lucide-react";
+import { Plus, MoreVertical, Edit2, Trash2, Phone, FileUp } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
+import ImportExcelDialog from "@/components/ImportExcelDialog";
 
 type DivisiPanitia = Database["public"]["Enums"]["divisi_panitia"];
 type RolePanitia = Database["public"]["Enums"]["role_panitia"];
@@ -24,6 +25,9 @@ type UkuranSeragam = Database["public"]["Enums"]["ukuran_seragam"];
 const DIVISI_OPTIONS: DivisiPanitia[] = ["ketua", "sekretaris", "bendahara", "koord_sapi", "koord_kambing", "penyembelih_sapi", "penyembelih_kambing", "distribusi", "konsumsi", "syariat", "area_sapi", "area_kambing", "lainnya"];
 const ROLE_OPTIONS: RolePanitia[] = ["super_admin", "admin_pendaftaran", "admin_keuangan", "admin_kupon", "admin_hewan", "panitia", "viewer"];
 const UKURAN_OPTIONS: UkuranSeragam[] = ["S", "M", "L", "XL", "XXL"];
+const VALID_DIVISI = new Set(DIVISI_OPTIONS);
+const VALID_ROLES = new Set(ROLE_OPTIONS);
+const VALID_UKURAN = new Set(UKURAN_OPTIONS);
 
 const DIVISI_COLORS: Record<string, string> = {
   ketua: "bg-primary/10 text-primary",
@@ -41,6 +45,7 @@ const PanitiaPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showImport, setShowImport] = useState(false);
 
   const [formNama, setFormNama] = useState("");
   const [formJabatan, setFormJabatan] = useState("");
@@ -115,13 +120,61 @@ const PanitiaPage = () => {
     setDialogOpen(true);
   };
 
+  const normalizeKey = (row: Record<string, any>, key: string): any => {
+    const lowerKey = key.toLowerCase();
+    for (const k of Object.keys(row)) {
+      if (k.toLowerCase() === lowerKey) return row[k];
+    }
+    return undefined;
+  };
+
+  const handleImportPanitia = async (rows: Record<string, any>[]) => {
+    const existingNames = new Set(panitiaList?.map((p) => p.nama.toLowerCase()) ?? []);
+    const duplicates: string[] = [];
+
+    const inserts = rows.map((r) => {
+      const nama = String(normalizeKey(r, "nama")).trim();
+      if (existingNames.has(nama.toLowerCase())) {
+        duplicates.push(nama);
+      }
+
+      const rawDivisi = String(normalizeKey(r, "divisi") ?? "").toLowerCase().trim();
+      const divisi: DivisiPanitia = VALID_DIVISI.has(rawDivisi as DivisiPanitia) ? rawDivisi as DivisiPanitia : "lainnya";
+
+      const rawRole = String(normalizeKey(r, "role") ?? "").toLowerCase().trim();
+      const role: RolePanitia = VALID_ROLES.has(rawRole as RolePanitia) ? rawRole as RolePanitia : "panitia";
+
+      const rawUkuran = String(normalizeKey(r, "ukuran_seragam") ?? "").toUpperCase().trim();
+      const ukuran_seragam = VALID_UKURAN.has(rawUkuran as UkuranSeragam) ? rawUkuran as UkuranSeragam : null;
+
+      return {
+        nama,
+        jabatan: normalizeKey(r, "jabatan") ? String(normalizeKey(r, "jabatan")).trim() : null,
+        divisi,
+        no_hp: normalizeKey(r, "no_hp") ? String(normalizeKey(r, "no_hp")).trim() : null,
+        ukuran_seragam,
+        role,
+        user_id: null,
+        tahun: 1447,
+      };
+    });
+
+    if (duplicates.length > 0) {
+      toast.warning(`${duplicates.length} nama sudah ada di database, tetap diimport: ${duplicates.slice(0, 3).join(", ")}${duplicates.length > 3 ? "..." : ""}`);
+    }
+
+    const { error } = await supabase.from("panitia").insert(inserts);
+    if (error) throw error;
+    queryClient.invalidateQueries({ queryKey: ["panitia-list"] });
+    toast.success(`${inserts.length} panitia berhasil diimport`);
+  };
+
   const filtered = panitiaList?.filter((p) => {
     if (filterDivisi !== "semua" && p.divisi !== filterDivisi) return false;
     if (filterRole !== "semua" && p.role !== filterRole) return false;
     return true;
   });
 
-  // Rekap seragam
   const rekapSeragam = UKURAN_OPTIONS.map((ukuran) => ({
     ukuran,
     jumlah: panitiaList?.filter((p) => p.ukuran_seragam === ukuran).length ?? 0,
@@ -134,45 +187,52 @@ const PanitiaPage = () => {
           <h1 className="page-title">Panitia</h1>
           <p className="page-subtitle">Manajemen data panitia qurban 1447H ({panitiaList?.length ?? 0} orang)</p>
         </div>
-        {isSuperAdmin && (
-          <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) resetForm(); }}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" /> Tambah Panitia</Button>
-            </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{editingId ? "Edit Panitia" : "Tambah Panitia"}</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <div><Label>Nama *</Label><Input value={formNama} onChange={(e) => setFormNama(e.target.value)} /></div>
-              <div><Label>Jabatan</Label><Input value={formJabatan} onChange={(e) => setFormJabatan(e.target.value)} /></div>
-              <div>
-                <Label>Divisi</Label>
-                <Select value={formDivisi} onValueChange={(v) => setFormDivisi(v as DivisiPanitia)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{DIVISI_OPTIONS.map((d) => <SelectItem key={d} value={d} className="capitalize">{d.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div><Label>No. HP</Label><Input value={formNoHp} onChange={(e) => setFormNoHp(e.target.value)} /></div>
-              <div>
-                <Label>Ukuran Seragam</Label>
-                <Select value={formUkuran} onValueChange={(v) => setFormUkuran(v as UkuranSeragam)}>
-                  <SelectTrigger><SelectValue placeholder="Pilih ukuran" /></SelectTrigger>
-                  <SelectContent>{UKURAN_OPTIONS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Role</Label>
-                <Select value={formRole} onValueChange={(v) => setFormRole(v as RolePanitia)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{ROLE_OPTIONS.map((r) => <SelectItem key={r} value={r} className="capitalize">{r.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <Button className="w-full" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !formNama.trim()}>
-                {saveMutation.isPending ? "Menyimpan..." : "Simpan"}
+        <div className="flex gap-2">
+          {isSuperAdmin && (
+            <>
+              <Button variant="outline" onClick={() => setShowImport(true)}>
+                <FileUp className="mr-2 h-4 w-4" /> Import Excel
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-        )}
+              <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) resetForm(); }}>
+                <DialogTrigger asChild>
+                  <Button><Plus className="mr-2 h-4 w-4" /> Tambah Panitia</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>{editingId ? "Edit Panitia" : "Tambah Panitia"}</DialogTitle></DialogHeader>
+                  <div className="space-y-3">
+                    <div><Label>Nama *</Label><Input value={formNama} onChange={(e) => setFormNama(e.target.value)} /></div>
+                    <div><Label>Jabatan</Label><Input value={formJabatan} onChange={(e) => setFormJabatan(e.target.value)} /></div>
+                    <div>
+                      <Label>Divisi</Label>
+                      <Select value={formDivisi} onValueChange={(v) => setFormDivisi(v as DivisiPanitia)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>{DIVISI_OPTIONS.map((d) => <SelectItem key={d} value={d} className="capitalize">{d.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div><Label>No. HP</Label><Input value={formNoHp} onChange={(e) => setFormNoHp(e.target.value)} /></div>
+                    <div>
+                      <Label>Ukuran Seragam</Label>
+                      <Select value={formUkuran} onValueChange={(v) => setFormUkuran(v as UkuranSeragam)}>
+                        <SelectTrigger><SelectValue placeholder="Pilih ukuran" /></SelectTrigger>
+                        <SelectContent>{UKURAN_OPTIONS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Role</Label>
+                      <Select value={formRole} onValueChange={(v) => setFormRole(v as RolePanitia)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>{ROLE_OPTIONS.map((r) => <SelectItem key={r} value={r} className="capitalize">{r.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <Button className="w-full" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !formNama.trim()}>
+                      {saveMutation.isPending ? "Menyimpan..." : "Simpan"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -230,6 +290,7 @@ const PanitiaPage = () => {
                   </Badge>
                   <Badge variant="outline" className="capitalize">{p.role.replace(/_/g, " ")}</Badge>
                   {p.ukuran_seragam && <Badge variant="secondary">{p.ukuran_seragam}</Badge>}
+                  {!p.user_id && <Badge variant="outline" className="text-muted-foreground border-muted-foreground/30">Belum Login</Badge>}
                 </div>
                 {p.no_hp && (
                   <div className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
@@ -270,6 +331,32 @@ const PanitiaPage = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Import Excel Dialog */}
+      <ImportExcelDialog
+        open={showImport}
+        onOpenChange={setShowImport}
+        title="Import Panitia dari Excel"
+        columns={[
+          { key: "nama", label: "Nama", required: true },
+          { key: "jabatan", label: "Jabatan" },
+          { key: "divisi", label: "Divisi" },
+          { key: "no_hp", label: "No. HP" },
+          { key: "ukuran_seragam", label: "Ukuran Seragam" },
+          { key: "role", label: "Role" },
+        ]}
+        templateData={[
+          { nama: "Ahmad Rizki", jabatan: "Koordinator", divisi: "koord_sapi", no_hp: "081234567890", ukuran_seragam: "L", role: "panitia" },
+          { nama: "Siti Fatimah", jabatan: "Bendahara", divisi: "bendahara", no_hp: "082345678901", ukuran_seragam: "M", role: "admin_keuangan" },
+          { nama: "Budi Santoso", jabatan: "Anggota", divisi: "distribusi", no_hp: "083456789012", ukuran_seragam: "XL", role: "panitia" },
+        ]}
+        templateFileName="template-panitia.xlsx"
+        validateRow={(r) => {
+          const nama = normalizeKey(r, "nama");
+          return !!nama && String(nama).trim() !== "";
+        }}
+        onImport={handleImportPanitia}
+      />
     </div>
   );
 };

@@ -69,6 +69,7 @@ const MustahiqPage = () => {
       setShowAdd(false);
       setFormNama("");
       setFormKeterangan("");
+      setFormPenyalur("");
       toast.success("Mustahiq berhasil ditambahkan");
     },
     onError: (err: any) => toast.error(err.message),

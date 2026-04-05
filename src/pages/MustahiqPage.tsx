@@ -106,7 +106,7 @@ const MustahiqPage = () => {
       return { nama: found.nama, nomor_kupon: found.nomor_kupon ?? "", kategori: found.kategori };
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["mustahiq-list"] });
+      queryClient.invalidateQueries({ queryKey: ["mustahiq-list"], refetchType: "active" });
       setScanResult(result);
       setScanState("success");
     },

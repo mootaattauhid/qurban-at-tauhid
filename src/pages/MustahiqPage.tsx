@@ -35,6 +35,7 @@ const MustahiqPage = () => {
   const [formNama, setFormNama] = useState("");
   const [formKategori, setFormKategori] = useState<KategoriMustahiq>("warga");
   const [formKeterangan, setFormKeterangan] = useState("");
+  const [formPenyalur, setFormPenyalur] = useState("");
   const kuponRef = useRef<HTMLDivElement>(null);
 
   const { data: mustahiqList, isLoading } = useQuery({

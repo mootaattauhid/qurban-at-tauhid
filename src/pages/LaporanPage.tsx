@@ -136,12 +136,35 @@ const reports = [
   { title: "Daftar Mustahiq", desc: "Semua mustahiq + status kupon", icon: Ticket, action: exportMustahiq },
 ];
 
-const LaporanPage = () => (
+const LaporanPage = () => {
+  const copyPublicLink = () => {
+    const url = `${window.location.origin}/publik/laporan`;
+    navigator.clipboard.writeText(url);
+    toast.success("Link publik disalin!");
+  };
+
+  return (
   <div className="space-y-6">
     <div className="page-header">
       <h1 className="page-title">Laporan</h1>
       <p className="page-subtitle">Export laporan PDF untuk kebutuhan panitia</p>
     </div>
+
+    {/* Public link card */}
+    <Card className="border-primary/20 bg-primary/5">
+      <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium">Laporan keuangan juga tersedia untuk publik</p>
+          <p className="text-xs text-muted-foreground">Bisa diakses tanpa login</p>
+        </div>
+        <div className="flex gap-2">
+          <a href="/publik/laporan" target="_blank" rel="noopener noreferrer">
+            <Button size="sm" variant="outline">Lihat versi publik</Button>
+          </a>
+          <Button size="sm" variant="ghost" onClick={copyPublicLink}>Salin tautan</Button>
+        </div>
+      </CardContent>
+    </Card>
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {reports.map((r) => (
         <Card key={r.title} className="hover:shadow-md transition-shadow">

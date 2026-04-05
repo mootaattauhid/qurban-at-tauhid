@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Share2 } from "lucide-react";
 import { formatTanggal } from "@/lib/qurban-utils";
 
 const AkadPage = () => {
@@ -20,11 +20,7 @@ const AkadPage = () => {
   const { data: shohibul, isLoading: loadingShohibul } = useQuery({
     queryKey: ["akad-shohibul", shohibulId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("shohibul_qurban")
-        .select("*, hewan_qurban(*)")
-        .eq("id", shohibulId!)
-        .single();
+      const { data, error } = await supabase.from("shohibul_qurban").select("*, hewan_qurban(*)").eq("id", shohibulId!).single();
       if (error) throw error;
       return data;
     },
@@ -34,10 +30,7 @@ const AkadPage = () => {
   const { data: requestBagian } = useQuery({
     queryKey: ["akad-request", shohibulId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("request_bagian")
-        .select("bagian")
-        .eq("shohibul_qurban_id", shohibulId!);
+      const { data, error } = await supabase.from("request_bagian").select("bagian").eq("shohibul_qurban_id", shohibulId!);
       if (error) throw error;
       return data;
     },
@@ -47,37 +40,24 @@ const AkadPage = () => {
   const approveMutation = useMutation({
     mutationFn: async () => {
       const now = new Date().toISOString();
-      const { error } = await supabase
-        .from("shohibul_qurban")
-        .update({ akad_dilakukan: true, akad_timestamp: now })
-        .eq("id", shohibulId!);
+      const { error } = await supabase.from("shohibul_qurban").update({ akad_dilakukan: true, akad_timestamp: now }).eq("id", shohibulId!);
       if (error) throw error;
       return now;
     },
-    onSuccess: (timestamp) => {
-      setAkadTime(new Date(timestamp));
-      setSuccess(true);
-    },
+    onSuccess: (timestamp) => { setAkadTime(new Date(timestamp)); setSuccess(true); },
     onError: (err: any) => toast.error(err.message),
   });
 
-  if (loadingShohibul) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Skeleton className="h-96 w-full max-w-lg" />
-      </div>
-    );
-  }
+  const shareWhatsApp = () => {
+    if (!shohibul || !akadTime) return;
+    const hewan = shohibul.hewan_qurban as any;
+    const msg = `Assalamu'alaikum, akad qurban Anda telah tercatat.\n\nNama: ${shohibul.nama}\nJenis: ${hewan?.jenis_hewan} (${hewan?.tipe_kepemilikan})\nWaktu: ${formatTanggal(akadTime)}\n\nJazakumullahu khairan.`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+  };
 
-  if (!shohibul) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <p className="text-muted-foreground">Data shohibul tidak ditemukan.</p>
-      </div>
-    );
-  }
+  if (loadingShohibul) return <div className="min-h-screen bg-background flex items-center justify-center p-4"><Skeleton className="h-96 w-full max-w-lg" /></div>;
+  if (!shohibul) return <div className="min-h-screen bg-background flex items-center justify-center p-4"><p className="text-muted-foreground">Data shohibul tidak ditemukan.</p></div>;
 
-  // Already completed
   if (shohibul.akad_dilakukan && !success) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -85,10 +65,7 @@ const AkadPage = () => {
           <CardContent className="p-8 text-center space-y-4">
             <CheckCircle2 className="h-16 w-16 text-success mx-auto" />
             <h2 className="text-xl font-bold">Akad Sudah Dilakukan</h2>
-            <p className="text-muted-foreground">
-              Akad untuk <strong>{shohibul.nama}</strong> sudah tercatat pada{" "}
-              {shohibul.akad_timestamp ? formatTanggal(shohibul.akad_timestamp) : "-"}.
-            </p>
+            <p className="text-muted-foreground">Akad untuk <strong>{shohibul.nama}</strong> sudah tercatat pada {shohibul.akad_timestamp ? formatTanggal(shohibul.akad_timestamp) : "-"}.</p>
           </CardContent>
         </Card>
       </div>
@@ -97,7 +74,6 @@ const AkadPage = () => {
 
   const hewan = shohibul?.hewan_qurban as any;
 
-  // Success screen
   if (success) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -110,9 +86,10 @@ const AkadPage = () => {
               <p>Jenis Qurban: <strong className="capitalize">{hewan?.jenis_hewan} ({hewan?.tipe_kepemilikan})</strong></p>
               <p>Waktu Akad: <strong>{akadTime ? formatTanggal(akadTime) : "-"}</strong></p>
             </div>
-            <p className="text-muted-foreground text-sm italic">
-              Jazakumullahu khairan, akad Anda telah tercatat. Panitia akan menghubungi Anda.
-            </p>
+            <p className="text-muted-foreground text-sm italic">Jazakumullahu khairan, akad Anda telah tercatat. Panitia akan menghubungi Anda.</p>
+            <Button variant="outline" className="mt-2" onClick={shareWhatsApp}>
+              <Share2 className="mr-2 h-4 w-4" /> Bagikan via WhatsApp
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -121,7 +98,6 @@ const AkadPage = () => {
 
   const isKambing = hewan?.jenis_hewan === "kambing";
   const isSapiKolektif = hewan?.jenis_hewan === "sapi" && hewan?.tipe_kepemilikan === "kolektif";
-  const isSapiIndividu = hewan?.jenis_hewan === "sapi" && hewan?.tipe_kepemilikan === "individu";
   const requestedParts = requestBagian?.map((r) => r.bagian) ?? [];
 
   const getTitle = () => {
@@ -133,26 +109,19 @@ const AkadPage = () => {
   const getPoin4 = () => {
     if (isKambing) {
       const base = "Shohibul Qurban membawa: separuh badan (mulai paha kanan belakang hingga paha kanan depan), hati, jantung, paru-paru, ginjal, limpa, lambung (babat), kepala, empat tulang kaki, dan lainnya.";
-      const extra = requestedParts.length > 0 ? ` Termasuk: ${requestedParts.join(", ")}.` : "";
-      return base + extra;
+      return base + (requestedParts.length > 0 ? ` Termasuk: ${requestedParts.join(", ")}.` : "");
     }
     if (isSapiKolektif) {
-      const requestInfo = requestedParts.length > 0
-        ? `Bagian yang Anda request: ${requestedParts.join(", ")}.`
-        : "Anda belum mengajukan request bagian.";
-      return `Shohibul Qurban mendapatkan 1/7 bagian daging bersih. Bagian lainnya (jeroan, kepala, kulit, ekor, kaki, tulang) dibagi sesuai request yang telah diajukan. ${requestInfo} Bagian yang tidak di-request oleh siapapun menjadi hak mustahiq.`;
+      const ri = requestedParts.length > 0 ? `Bagian yang Anda request: ${requestedParts.join(", ")}.` : "Anda belum mengajukan request bagian.";
+      return `Shohibul Qurban mendapatkan 1/7 bagian daging bersih. Bagian lainnya (jeroan, kepala, kulit, ekor, kaki, tulang) dibagi sesuai request yang telah diajukan. ${ri} Bagian yang tidak di-request oleh siapapun menjadi hak mustahiq.`;
     }
-    // Sapi individu
-    const requestInfo = requestedParts.length > 0
-      ? `Bagian yang Anda request: ${requestedParts.join(", ")}.`
-      : "Semua bagian akan diserahkan ke Anda.";
-    return `Shohibul Qurban membawa keseluruhan daging dan bagian hewan kecuali yang secara sukarela disedekahkan. ${requestInfo}`;
+    const ri = requestedParts.length > 0 ? `Bagian yang Anda request: ${requestedParts.join(", ")}.` : "Semua bagian akan diserahkan ke Anda.";
+    return `Shohibul Qurban membawa keseluruhan daging dan bagian hewan kecuali yang secara sukarela disedekahkan. ${ri}`;
   };
 
   const getPoin5 = () => {
     if (isSapiKolektif) return "Daging sapi yang tersisa setelah pembagian 1/7 per shohibul dibagikan panitia ke daftar mustahiq sebagai hadiah/sedekah.";
-    const hType = isKambing ? "kambing" : "sapi";
-    return `Daging ${hType} dan tulang yang tersisa dibagikan oleh panitia ke daftar mustahiq yang ada pada panitia sebagai hadiah/sedekah.`;
+    return `Daging ${isKambing ? "kambing" : "sapi"} dan tulang yang tersisa dibagikan oleh panitia ke daftar mustahiq yang ada pada panitia sebagai hadiah/sedekah.`;
   };
 
   const getIlustrasi = () => {
@@ -164,8 +133,7 @@ const AkadPage = () => {
     "Shohibul Qurban adalah pemilik hewan kurban, dan panitia bertindak sebagai wakil dari Shohibul Qurban.",
     "Shohibul Qurban mencari sendiri hewan kurbannya.",
     "Shohibul Qurban mewakilkan kepada panitia untuk mengurus hewan kurban, mulai dari penyembelihan, pengulitan, hingga proses selanjutnya.",
-    getPoin4(),
-    getPoin5(),
+    getPoin4(), getPoin5(),
     "Daftar mustahiq: Fakir miskin, Jamaah Masjid, Warga sekitar masjid, Panitia (yang tidak masuk 3 kategori di atas), Aparat pemerintahan dan tokoh masyarakat terdekat (RT, RW, Lurah, Babinkamtibmas, dll.), Jika ada kelebihan, dibagikan kepada pihak lain yang dinilai layak.",
     "Daging yang dibagikan oleh panitia adalah milik Shohibul Qurban, panitia hanya sebagai wakil dalam penyerahannya.",
     getIlustrasi(),
@@ -179,40 +147,21 @@ const AkadPage = () => {
             <h1 className="text-xl font-bold">{getTitle()}</h1>
             <Badge variant="outline" className="mt-2 capitalize">{shohibul.nama}</Badge>
           </div>
-
-          <p className="text-sm leading-relaxed">
-            Bismillaah, afwan abu dan ummu, sebelum pelaksanaan, izinkan kami melakukan akad terlebih dahulu sebagai bentuk kesepahaman antara Shohibul Qurban dan Panitia. Berikut poin-poin kesepakatannya:
-          </p>
-
+          <p className="text-sm leading-relaxed">Bismillaah, afwan abu dan ummu, sebelum pelaksanaan, izinkan kami melakukan akad terlebih dahulu sebagai bentuk kesepahaman antara Shohibul Qurban dan Panitia. Berikut poin-poin kesepakatannya:</p>
           <ol className="space-y-3">
             {poinList.map((poin, idx) => (
-              <li
-                key={idx}
-                className={`text-sm leading-relaxed p-3 rounded-lg ${
-                  idx === 3 ? "bg-yellow-50 border border-yellow-200 dark:bg-yellow-950/30 dark:border-yellow-800" : "bg-muted/30"
-                }`}
-              >
-                <span className="font-bold text-primary mr-2">{idx + 1}.</span>
-                {poin}
+              <li key={idx} className={`text-sm leading-relaxed p-3 rounded-lg ${idx === 3 ? "bg-yellow-50 border border-yellow-200 dark:bg-yellow-950/30 dark:border-yellow-800" : "bg-muted/30"}`}>
+                <span className="font-bold text-primary mr-2">{idx + 1}.</span>{poin}
               </li>
             ))}
           </ol>
-
-          <p className="text-sm leading-relaxed italic text-muted-foreground">
-            Demikian poin-poin kesepakatan yang perlu disetujui di awal. Insya Allah panitia akan bekerja berdasarkan kesepakatan ini. Apakah Abu/Ummu menyetujui kesepakatan tersebut? Semoga Allah mudahkan kita semua dalam pelaksanaan ibadah qurban tahun ini. Aamiin.
-          </p>
-
+          <p className="text-sm leading-relaxed italic text-muted-foreground">Demikian poin-poin kesepakatan yang perlu disetujui di awal. Insya Allah panitia akan bekerja berdasarkan kesepakatan ini. Apakah Abu/Ummu menyetujui kesepakatan tersebut? Semoga Allah mudahkan kita semua dalam pelaksanaan ibadah qurban tahun ini. Aamiin.</p>
           <div className="border-t pt-4 space-y-4">
             <label className="flex items-start gap-3 cursor-pointer">
               <Checkbox checked={agreed} onCheckedChange={(v) => setAgreed(!!v)} className="mt-0.5" />
               <span className="text-sm">Saya telah membaca dan memahami poin-poin di atas</span>
             </label>
-
-            <Button
-              className="w-full h-12 text-base bg-primary hover:bg-primary/90"
-              disabled={!agreed || approveMutation.isPending}
-              onClick={() => approveMutation.mutate()}
-            >
+            <Button className="w-full h-12 text-base bg-primary hover:bg-primary/90" disabled={!agreed || approveMutation.isPending} onClick={() => approveMutation.mutate()}>
               {approveMutation.isPending ? "Menyimpan..." : "✓ Saya Menyetujui Kesepakatan Ini"}
             </Button>
           </div>

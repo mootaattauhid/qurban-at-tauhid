@@ -35,6 +35,7 @@ const MustahiqPage = () => {
   const [formNama, setFormNama] = useState("");
   const [formKategori, setFormKategori] = useState<KategoriMustahiq>("warga");
   const [formKeterangan, setFormKeterangan] = useState("");
+  const [formPenyalur, setFormPenyalur] = useState("");
   const kuponRef = useRef<HTMLDivElement>(null);
 
   const { data: mustahiqList, isLoading } = useQuery({
@@ -57,6 +58,7 @@ const MustahiqPage = () => {
         nama: formNama,
         kategori: formKategori,
         keterangan: formKeterangan || null,
+        nama_penyalur: formPenyalur || null,
         nomor_kupon: nomor,
         qr_data: nomor,
       });
@@ -67,6 +69,7 @@ const MustahiqPage = () => {
       setShowAdd(false);
       setFormNama("");
       setFormKeterangan("");
+      setFormPenyalur("");
       toast.success("Mustahiq berhasil ditambahkan");
     },
     onError: (err: any) => toast.error(err.message),
@@ -257,6 +260,10 @@ const MustahiqPage = () => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Nama Penyalur</Label>
+              <Input value={formPenyalur} onChange={(e) => setFormPenyalur(e.target.value)} placeholder="Opsional" />
             </div>
             <div className="space-y-2">
               <Label>Keterangan</Label>

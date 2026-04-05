@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { formatRupiah, formatTanggal } from "@/lib/qurban-utils";
-import { Plus, Search, TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import { Plus, Search, TrendingUp, TrendingDown, Wallet, CreditCard } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const KATEGORI_SUGGESTIONS = ["pembelian hewan", "operasional", "konsumsi", "perlengkapan", "iuran shohibul"];
@@ -26,6 +26,17 @@ const KeuanganPage = () => {
   const [filterMetode, setFilterMetode] = useState("semua");
   const [searchKeterangan, setSearchKeterangan] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [iuranDialogOpen, setIuranDialogOpen] = useState(false);
+  const [filterBayar, setFilterBayar] = useState("semua");
+
+  // Iuran payment form state
+  const [payNama, setPayNama] = useState("");
+  const [payHewan, setPayHewan] = useState("");
+  const [payNominal, setPayNominal] = useState(0);
+  const [payJumlah, setPayJumlah] = useState("");
+  const [payMetode, setPayMetode] = useState<"tunai" | "bank">("tunai");
+  const [payKeterangan, setPayKeterangan] = useState("");
+  const [payShohibulId, setPayShohibulId] = useState("");
 
   // Form state
   const [formTanggal, setFormTanggal] = useState(new Date().toISOString().split("T")[0]);
@@ -56,6 +67,34 @@ const KeuanganPage = () => {
     },
   });
 
+  // Get iuran payments from kas
+  const { data: iuranPayments } = useQuery({
+    queryKey: ["iuran-payments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("kas")
+        .select("*")
+        .eq("jenis", "masuk")
+        .eq("kategori", "iuran shohibul");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const getPaymentTotal = (shohibulId: string) => {
+    if (!iuranPayments) return 0;
+    return iuranPayments
+      .filter((p) => p.keterangan?.includes(shohibulId))
+      .reduce((sum, p) => sum + Number(p.jumlah), 0);
+  };
+
+  const getPaymentStatus = (shohibulId: string, iuranPerOrang: number) => {
+    const total = getPaymentTotal(shohibulId);
+    if (total <= 0) return "belum";
+    if (total >= iuranPerOrang) return "lunas";
+    return "dp";
+  };
+
   const insertMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("kas").insert({
@@ -77,6 +116,27 @@ const KeuanganPage = () => {
     onError: (err: any) => toast.error(err.message),
   });
 
+  const paymentMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("kas").insert({
+        tanggal: new Date().toISOString().split("T")[0],
+        jenis: "masuk" as const,
+        metode: payMetode,
+        kategori: "iuran shohibul",
+        keterangan: `${payKeterangan} [${payShohibulId}]`,
+        jumlah: parseInt(payJumlah) || 0,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kas-list"] });
+      queryClient.invalidateQueries({ queryKey: ["iuran-payments"] });
+      setIuranDialogOpen(false);
+      toast.success("Pembayaran berhasil dicatat");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
   const resetForm = () => {
     setFormTanggal(new Date().toISOString().split("T")[0]);
     setFormJenis("masuk");
@@ -84,6 +144,18 @@ const KeuanganPage = () => {
     setFormKategori("");
     setFormKeterangan("");
     setFormJumlah("");
+  };
+
+  const openPayDialog = (s: any) => {
+    const h = s.hewan_qurban as any;
+    setPayShohibulId(s.id);
+    setPayNama(s.nama);
+    setPayHewan(`${h?.nomor_urut ?? "-"} (${h?.jenis_hewan})`);
+    setPayNominal(Number(h?.iuran_per_orang ?? 0));
+    setPayJumlah("");
+    setPayMetode("tunai");
+    setPayKeterangan(`Iuran ${s.nama} - ${h?.nomor_urut ?? ""}`);
+    setIuranDialogOpen(true);
   };
 
   const totalMasuk = kasList?.filter((k) => k.jenis === "masuk").reduce((a, k) => a + Number(k.jumlah), 0) ?? 0;
@@ -108,6 +180,29 @@ const KeuanganPage = () => {
     });
     return Object.entries(categories).map(([name, vals]) => ({ name, ...vals }));
   })();
+
+  // Iuran summary
+  const iuranSummary = (() => {
+    if (!shohibulIuran) return { lunas: 0, dp: 0, belum: 0, total: 0 };
+    let lunas = 0, dp = 0, belum = 0, total = 0;
+    shohibulIuran.forEach((s) => {
+      const h = s.hewan_qurban as any;
+      const iur = Number(h?.iuran_per_orang ?? 0);
+      const status = getPaymentStatus(s.id, iur);
+      if (status === "lunas") lunas++;
+      else if (status === "dp") dp++;
+      else belum++;
+      total += getPaymentTotal(s.id);
+    });
+    return { lunas, dp, belum, total };
+  })();
+
+  const filteredIuran = shohibulIuran?.filter((s) => {
+    if (filterBayar === "semua") return true;
+    const h = s.hewan_qurban as any;
+    const iur = Number(h?.iuran_per_orang ?? 0);
+    return getPaymentStatus(s.id, iur) === filterBayar;
+  });
 
   return (
     <div className="space-y-6">
@@ -270,12 +365,52 @@ const KeuanganPage = () => {
           {loadingIuran ? <Skeleton className="h-48 w-full" /> : (
             <>
               {/* Summary */}
-              <div className="flex gap-4 flex-wrap">
-                {["Belum Bayar", "DP", "Lunas"].map((status) => {
-                  // Simple heuristic: we don't have payment status field yet, show all as list
-                  return null;
-                })}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-bold text-success">{iuranSummary.lunas}</p>
+                    <p className="text-xs text-muted-foreground">Lunas</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-bold text-warning">{iuranSummary.dp}</p>
+                    <p className="text-xs text-muted-foreground">DP</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-bold text-destructive">{iuranSummary.belum}</p>
+                    <p className="text-xs text-muted-foreground">Belum Bayar</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-lg font-bold text-primary">{formatRupiah(iuranSummary.total)}</p>
+                    <p className="text-xs text-muted-foreground">Total Terkumpul</p>
+                  </CardContent>
+                </Card>
               </div>
+
+              {/* Filter */}
+              <div className="flex gap-2">
+                {[
+                  { val: "semua", label: "Semua" },
+                  { val: "belum", label: "Belum Bayar" },
+                  { val: "dp", label: "DP" },
+                  { val: "lunas", label: "Lunas" },
+                ].map((f) => (
+                  <Button
+                    key={f.val}
+                    size="sm"
+                    variant={filterBayar === f.val ? "default" : "outline"}
+                    onClick={() => setFilterBayar(f.val)}
+                  >
+                    {f.label}
+                  </Button>
+                ))}
+              </div>
+
               <div className="table-container">
                 <Table>
                   <TableHeader>
@@ -284,20 +419,41 @@ const KeuanganPage = () => {
                       <TableHead>Hewan</TableHead>
                       <TableHead>Tipe</TableHead>
                       <TableHead className="text-right">Nominal Iuran</TableHead>
+                      <TableHead className="text-right">Terbayar</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {shohibulIuran?.length === 0 && (
-                      <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Belum ada data</TableCell></TableRow>
+                    {filteredIuran?.length === 0 && (
+                      <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Belum ada data</TableCell></TableRow>
                     )}
-                    {shohibulIuran?.map((s) => {
+                    {filteredIuran?.map((s) => {
                       const h = s.hewan_qurban as any;
+                      const iur = Number(h?.iuran_per_orang ?? 0);
+                      const paid = getPaymentTotal(s.id);
+                      const status = getPaymentStatus(s.id, iur);
                       return (
                         <TableRow key={s.id}>
                           <TableCell className="font-medium">{s.nama}</TableCell>
                           <TableCell>{h?.nomor_urut ?? "-"} ({h?.jenis_hewan})</TableCell>
                           <TableCell className="capitalize">{h?.tipe_kepemilikan}</TableCell>
-                          <TableCell className="text-right font-semibold">{formatRupiah(Number(h?.iuran_per_orang ?? 0))}</TableCell>
+                          <TableCell className="text-right font-semibold">{formatRupiah(iur)}</TableCell>
+                          <TableCell className="text-right">{formatRupiah(paid)}</TableCell>
+                          <TableCell>
+                            <Badge className={
+                              status === "lunas" ? "bg-success/10 text-success border-success/20" :
+                              status === "dp" ? "bg-warning/10 text-warning border-warning/20" :
+                              "bg-destructive/10 text-destructive border-destructive/20"
+                            }>
+                              {status === "lunas" ? "Lunas" : status === "dp" ? "DP" : "Belum Bayar"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button size="sm" variant="outline" onClick={() => openPayDialog(s)}>
+                              <CreditCard className="mr-1 h-3 w-3" /> Bayar
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       );
                     })}
@@ -308,6 +464,30 @@ const KeuanganPage = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Payment Dialog */}
+      <Dialog open={iuranDialogOpen} onOpenChange={setIuranDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Catat Pembayaran Iuran</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>Nama Shohibul</Label><Input value={payNama} readOnly className="bg-muted" /></div>
+            <div><Label>Hewan</Label><Input value={payHewan} readOnly className="bg-muted" /></div>
+            <div><Label>Nominal Iuran</Label><Input value={formatRupiah(payNominal)} readOnly className="bg-muted" /></div>
+            <div><Label>Jumlah Dibayar (Rp)</Label><Input type="number" value={payJumlah} onChange={(e) => setPayJumlah(e.target.value)} placeholder="0" /></div>
+            <div>
+              <Label>Metode</Label>
+              <RadioGroup value={payMetode} onValueChange={(v) => setPayMetode(v as any)} className="flex gap-4 mt-1">
+                <div className="flex items-center gap-2"><RadioGroupItem value="tunai" id="pay-tunai" /><Label htmlFor="pay-tunai">Tunai</Label></div>
+                <div className="flex items-center gap-2"><RadioGroupItem value="bank" id="pay-bank" /><Label htmlFor="pay-bank">Bank</Label></div>
+              </RadioGroup>
+            </div>
+            <div><Label>Keterangan</Label><Textarea value={payKeterangan} onChange={(e) => setPayKeterangan(e.target.value)} /></div>
+            <Button className="w-full" onClick={() => paymentMutation.mutate()} disabled={paymentMutation.isPending || !payJumlah}>
+              {paymentMutation.isPending ? "Menyimpan..." : "Simpan Pembayaran"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

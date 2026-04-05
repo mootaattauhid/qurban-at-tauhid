@@ -59,6 +59,7 @@ const ShohibulList = () => {
                 <TableHead className="w-12">#</TableHead>
                 <TableHead>Nama</TableHead>
                 <TableHead>Hewan</TableHead>
+                <TableHead>No. WA</TableHead>
                 <TableHead>Tipe</TableHead>
                 <TableHead>Akad</TableHead>
                 <TableHead>Status</TableHead>
@@ -67,7 +68,7 @@ const ShohibulList = () => {
             <TableBody>
               {filtered?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     Belum ada data shohibul
                   </TableCell>
                 </TableRow>
@@ -80,7 +81,17 @@ const ShohibulList = () => {
                       {s.nama}
                     </Link>
                   </TableCell>
-                  <TableCell>{(s.hewan_qurban as any)?.nomor_urut ?? "-"}</TableCell>
+                  <TableCell>
+                    {(s.hewan_qurban as any)?.nomor_urut ?? "-"}{" "}
+                    <Badge variant="outline" className="text-xs capitalize">{(s.hewan_qurban as any)?.jenis_hewan}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    {s.no_wa ? (
+                      <a href={`https://wa.me/${s.no_wa.replace(/^0/, "62").replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm">
+                        {s.no_wa}
+                      </a>
+                    ) : "-"}
+                  </TableCell>
                   <TableCell className="capitalize">{s.tipe_kepemilikan}</TableCell>
                   <TableCell>
                     <Badge variant={s.akad_dilakukan ? "default" : "outline"}

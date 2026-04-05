@@ -208,9 +208,11 @@ const Dashboard = () => {
                         const count = h.counts[b] ?? 0;
                         return (
                           <TableCell key={b} className="text-center">
-                            <Badge variant="outline" className={count > 0 ? "bg-success/10 text-success border-success/20" : "bg-muted text-muted-foreground"}>
-                              {count}
-                            </Badge>
+                          {count > 0 ? (
+                            <Badge variant="outline" className="bg-success/10 text-success border-success/20">{count}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                           </TableCell>
                         );
                       })}

@@ -37,7 +37,7 @@ const HewanTambah = () => {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("hewan_qurban").insert({
+      const { data: inserted, error } = await supabase.from("hewan_qurban").insert({
         nomor_urut: form.nomor_urut,
         jenis_hewan: form.jenis_hewan,
         tipe_kepemilikan: form.tipe_kepemilikan,
@@ -52,13 +52,14 @@ const HewanTambah = () => {
         kuota,
         uang_muka: parseInt(form.uang_muka) || 0,
         catatan: form.catatan || null,
-      });
+      }).select("id").single();
       if (error) throw error;
+      return inserted.id;
     },
-    onSuccess: () => {
+    onSuccess: (newId: string) => {
       queryClient.invalidateQueries({ queryKey: ["hewan-list"] });
       toast.success("Hewan berhasil ditambahkan!");
-      navigate("/hewan");
+      navigate(`/hewan/${newId}`);
     },
     onError: (err: any) => toast.error(err.message),
   });

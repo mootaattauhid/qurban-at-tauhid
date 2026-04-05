@@ -51,6 +51,7 @@ const MustahiqPage = () => {
   const [scanError, setScanError] = useState("");
   const [scanKey, setScanKey] = useState(0);
   const scannerRef = useRef<any>(null);
+  const isScanProcessingRef = useRef(false);
 
   const { data: mustahiqList, isLoading } = useQuery({
     queryKey: ["mustahiq-list"],
@@ -127,6 +128,7 @@ const MustahiqPage = () => {
   }, []);
 
   const resetScanState = useCallback(() => {
+    isScanProcessingRef.current = false;
     setScanState("scanning");
     setScanResult(null);
     setScanError("");
@@ -142,18 +144,35 @@ const MustahiqPage = () => {
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
         async (decoded: string) => {
-          await scanner.stop();
-          scannerRef.current = null;
+          if (isScanProcessingRef.current) return;
+          isScanProcessingRef.current = true;
+
+          try {
+            await scanner.stop();
+          } catch {
+            isScanProcessingRef.current = false;
+            return;
+          }
+
+          if (scannerRef.current === scanner) {
+            scannerRef.current = null;
+          }
+
           scanMutation.mutate(decoded);
         },
         () => {}
       ).then(() => {
         scannerRef.current = scanner;
-      }).catch(() => toast.error("Tidak bisa mengakses kamera"));
+      }).catch(() => {
+        isScanProcessingRef.current = false;
+        toast.error("Tidak bisa mengakses kamera");
+      });
     });
     return () => {
-      scanner?.stop?.().catch(() => {});
-      scannerRef.current = null;
+      if (scannerRef.current === scanner) {
+        scanner.stop().catch(() => {});
+        scannerRef.current = null;
+      }
     };
   }, [showScanner, scanState, scanKey]);
 

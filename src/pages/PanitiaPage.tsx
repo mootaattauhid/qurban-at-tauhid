@@ -134,10 +134,11 @@ const PanitiaPage = () => {
           <h1 className="page-title">Panitia</h1>
           <p className="page-subtitle">Manajemen data panitia qurban 1447H ({panitiaList?.length ?? 0} orang)</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" /> Tambah Panitia</Button>
-          </DialogTrigger>
+        {isSuperAdmin && (
+          <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button><Plus className="mr-2 h-4 w-4" /> Tambah Panitia</Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>{editingId ? "Edit Panitia" : "Tambah Panitia"}</DialogTitle></DialogHeader>
             <div className="space-y-3">

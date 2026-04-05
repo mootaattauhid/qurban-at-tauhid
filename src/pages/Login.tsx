@@ -11,7 +11,6 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,20 +18,10 @@ const Login = () => {
     setLoading(true);
 
     try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin },
-        });
-        if (error) throw error;
-        toast.success("Registrasi berhasil! Silakan cek email untuk verifikasi.");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        toast.success("Login berhasil!");
-        navigate("/dashboard");
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      toast.success("Login berhasil!");
+      navigate("/dashboard");
     } catch (error: any) {
       toast.error(error.message || "Terjadi kesalahan");
     } finally {
@@ -75,18 +64,9 @@ const Login = () => {
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Memproses..." : isSignUp ? "Daftar" : "Masuk"}
+              {loading ? "Memproses..." : "Masuk"}
             </Button>
           </form>
-          <div className="mt-4 text-center">
-            <button
-              type="button"
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
-              onClick={() => setIsSignUp(!isSignUp)}
-            >
-              {isSignUp ? "Sudah punya akun? Masuk" : "Belum punya akun? Daftar"}
-            </button>
-          </div>
         </CardContent>
       </Card>
     </div>

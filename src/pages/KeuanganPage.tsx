@@ -268,43 +268,48 @@ const KeuanganPage = () => {
               <Input placeholder="Cari keterangan..." className="pl-10 w-[200px]" value={searchKeterangan} onChange={(e) => setSearchKeterangan(e.target.value)} />
             </div>
             {isAdmin() && (
-              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button><Plus className="mr-2 h-4 w-4" /> Tambah Transaksi</Button>
-                </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Tambah Transaksi</DialogTitle></DialogHeader>
-                <div className="space-y-3">
-                  <div><Label>Tanggal</Label><Input type="date" value={formTanggal} onChange={(e) => setFormTanggal(e.target.value)} /></div>
-                  <div>
-                    <Label>Jenis</Label>
-                    <RadioGroup value={formJenis} onValueChange={(v) => setFormJenis(v as any)} className="flex gap-4 mt-1">
-                      <div className="flex items-center gap-2"><RadioGroupItem value="masuk" id="j-masuk" /><Label htmlFor="j-masuk">Masuk</Label></div>
-                      <div className="flex items-center gap-2"><RadioGroupItem value="keluar" id="j-keluar" /><Label htmlFor="j-keluar">Keluar</Label></div>
-                    </RadioGroup>
+              <>
+                <Button variant="outline" onClick={() => setShowKasImport(true)}>
+                  <FileUp className="mr-2 h-4 w-4" /> Import Excel
+                </Button>
+                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button><Plus className="mr-2 h-4 w-4" /> Tambah Transaksi</Button>
+                  </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Tambah Transaksi</DialogTitle></DialogHeader>
+                  <div className="space-y-3">
+                    <div><Label>Tanggal</Label><Input type="date" value={formTanggal} onChange={(e) => setFormTanggal(e.target.value)} /></div>
+                    <div>
+                      <Label>Jenis</Label>
+                      <RadioGroup value={formJenis} onValueChange={(v) => setFormJenis(v as any)} className="flex gap-4 mt-1">
+                        <div className="flex items-center gap-2"><RadioGroupItem value="masuk" id="j-masuk" /><Label htmlFor="j-masuk">Masuk</Label></div>
+                        <div className="flex items-center gap-2"><RadioGroupItem value="keluar" id="j-keluar" /><Label htmlFor="j-keluar">Keluar</Label></div>
+                      </RadioGroup>
+                    </div>
+                    <div>
+                      <Label>Metode</Label>
+                      <RadioGroup value={formMetode} onValueChange={(v) => setFormMetode(v as any)} className="flex gap-4 mt-1">
+                        <div className="flex items-center gap-2"><RadioGroupItem value="tunai" id="m-tunai" /><Label htmlFor="m-tunai">Tunai</Label></div>
+                        <div className="flex items-center gap-2"><RadioGroupItem value="bank" id="m-bank" /><Label htmlFor="m-bank">Bank</Label></div>
+                      </RadioGroup>
+                    </div>
+                    <div>
+                      <Label>Kategori</Label>
+                      <Input value={formKategori} onChange={(e) => setFormKategori(e.target.value)} placeholder="Ketik kategori..." list="kategori-list" />
+                      <datalist id="kategori-list">
+                        {KATEGORI_SUGGESTIONS.map((k) => <option key={k} value={k} />)}
+                      </datalist>
+                    </div>
+                    <div><Label>Keterangan</Label><Textarea value={formKeterangan} onChange={(e) => setFormKeterangan(e.target.value)} /></div>
+                    <div><Label>Jumlah (Rp)</Label><Input type="number" value={formJumlah} onChange={(e) => setFormJumlah(e.target.value)} placeholder="0" /></div>
+                    <Button className="w-full" onClick={() => insertMutation.mutate()} disabled={insertMutation.isPending || !formJumlah}>
+                      {insertMutation.isPending ? "Menyimpan..." : "Simpan"}
+                    </Button>
                   </div>
-                  <div>
-                    <Label>Metode</Label>
-                    <RadioGroup value={formMetode} onValueChange={(v) => setFormMetode(v as any)} className="flex gap-4 mt-1">
-                      <div className="flex items-center gap-2"><RadioGroupItem value="tunai" id="m-tunai" /><Label htmlFor="m-tunai">Tunai</Label></div>
-                      <div className="flex items-center gap-2"><RadioGroupItem value="bank" id="m-bank" /><Label htmlFor="m-bank">Bank</Label></div>
-                    </RadioGroup>
-                  </div>
-                  <div>
-                    <Label>Kategori</Label>
-                    <Input value={formKategori} onChange={(e) => setFormKategori(e.target.value)} placeholder="Ketik kategori..." list="kategori-list" />
-                    <datalist id="kategori-list">
-                      {KATEGORI_SUGGESTIONS.map((k) => <option key={k} value={k} />)}
-                    </datalist>
-                  </div>
-                  <div><Label>Keterangan</Label><Textarea value={formKeterangan} onChange={(e) => setFormKeterangan(e.target.value)} /></div>
-                  <div><Label>Jumlah (Rp)</Label><Input type="number" value={formJumlah} onChange={(e) => setFormJumlah(e.target.value)} placeholder="0" /></div>
-                  <Button className="w-full" onClick={() => insertMutation.mutate()} disabled={insertMutation.isPending || !formJumlah}>
-                    {insertMutation.isPending ? "Menyimpan..." : "Simpan"}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogContent>
+              </Dialog>
+              </>
             )}
           </div>
 

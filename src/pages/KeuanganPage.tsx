@@ -1,0 +1,315 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
+import { formatRupiah, formatTanggal } from "@/lib/qurban-utils";
+import { Plus, Search, TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+
+const KATEGORI_SUGGESTIONS = ["pembelian hewan", "operasional", "konsumsi", "perlengkapan", "iuran shohibul"];
+
+const KeuanganPage = () => {
+  const queryClient = useQueryClient();
+  const [filterJenis, setFilterJenis] = useState("semua");
+  const [filterMetode, setFilterMetode] = useState("semua");
+  const [searchKeterangan, setSearchKeterangan] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Form state
+  const [formTanggal, setFormTanggal] = useState(new Date().toISOString().split("T")[0]);
+  const [formJenis, setFormJenis] = useState<"masuk" | "keluar">("masuk");
+  const [formMetode, setFormMetode] = useState<"tunai" | "bank">("tunai");
+  const [formKategori, setFormKategori] = useState("");
+  const [formKeterangan, setFormKeterangan] = useState("");
+  const [formJumlah, setFormJumlah] = useState("");
+
+  const { data: kasList, isLoading } = useQuery({
+    queryKey: ["kas-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("kas").select("*").order("tanggal", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: shohibulIuran, isLoading: loadingIuran } = useQuery({
+    queryKey: ["shohibul-iuran"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shohibul_qurban")
+        .select("*, hewan_qurban(nomor_urut, jenis_hewan, tipe_kepemilikan, iuran_per_orang)")
+        .order("nama");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const insertMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("kas").insert({
+        tanggal: formTanggal,
+        jenis: formJenis,
+        metode: formMetode,
+        kategori: formKategori || null,
+        keterangan: formKeterangan || null,
+        jumlah: parseInt(formJumlah) || 0,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kas-list"] });
+      setDialogOpen(false);
+      resetForm();
+      toast.success("Transaksi berhasil ditambahkan");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const resetForm = () => {
+    setFormTanggal(new Date().toISOString().split("T")[0]);
+    setFormJenis("masuk");
+    setFormMetode("tunai");
+    setFormKategori("");
+    setFormKeterangan("");
+    setFormJumlah("");
+  };
+
+  const totalMasuk = kasList?.filter((k) => k.jenis === "masuk").reduce((a, k) => a + Number(k.jumlah), 0) ?? 0;
+  const totalKeluar = kasList?.filter((k) => k.jenis === "keluar").reduce((a, k) => a + Number(k.jumlah), 0) ?? 0;
+  const saldo = totalMasuk - totalKeluar;
+
+  const filtered = kasList?.filter((k) => {
+    if (filterJenis !== "semua" && k.jenis !== filterJenis) return false;
+    if (filterMetode !== "semua" && k.metode !== filterMetode) return false;
+    if (searchKeterangan && !(k.keterangan?.toLowerCase().includes(searchKeterangan.toLowerCase()))) return false;
+    return true;
+  });
+
+  // Chart data
+  const chartData = (() => {
+    if (!kasList) return [];
+    const categories: Record<string, { masuk: number; keluar: number }> = {};
+    kasList.forEach((k) => {
+      const cat = k.kategori || "Lainnya";
+      if (!categories[cat]) categories[cat] = { masuk: 0, keluar: 0 };
+      categories[cat][k.jenis] += Number(k.jumlah);
+    });
+    return Object.entries(categories).map(([name, vals]) => ({ name, ...vals }));
+  })();
+
+  return (
+    <div className="space-y-6">
+      <div className="page-header">
+        <h1 className="page-title">Keuangan</h1>
+        <p className="page-subtitle">Buku kas & iuran shohibul qurban 1447H</p>
+      </div>
+
+      <Tabs defaultValue="buku-kas">
+        <TabsList>
+          <TabsTrigger value="buku-kas">Buku Kas</TabsTrigger>
+          <TabsTrigger value="iuran">Iuran Shohibul</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="buku-kas" className="space-y-6">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-5 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center"><TrendingUp className="h-5 w-5 text-success" /></div>
+                <div><p className="text-sm text-muted-foreground">Total Pemasukan</p><p className="text-xl font-bold text-success">{formatRupiah(totalMasuk)}</p></div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-5 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center"><TrendingDown className="h-5 w-5 text-destructive" /></div>
+                <div><p className="text-sm text-muted-foreground">Total Pengeluaran</p><p className="text-xl font-bold text-destructive">{formatRupiah(totalKeluar)}</p></div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-5 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center"><Wallet className="h-5 w-5 text-info" /></div>
+                <div><p className="text-sm text-muted-foreground">Saldo</p><p className="text-xl font-bold text-info">{formatRupiah(saldo)}</p></div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filters + Add */}
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={filterJenis} onValueChange={setFilterJenis}>
+              <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="semua">Semua Jenis</SelectItem>
+                <SelectItem value="masuk">Masuk</SelectItem>
+                <SelectItem value="keluar">Keluar</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterMetode} onValueChange={setFilterMetode}>
+              <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="semua">Semua Metode</SelectItem>
+                <SelectItem value="tunai">Tunai</SelectItem>
+                <SelectItem value="bank">Bank</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Cari keterangan..." className="pl-10 w-[200px]" value={searchKeterangan} onChange={(e) => setSearchKeterangan(e.target.value)} />
+            </div>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button><Plus className="mr-2 h-4 w-4" /> Tambah Transaksi</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Tambah Transaksi</DialogTitle></DialogHeader>
+                <div className="space-y-3">
+                  <div><Label>Tanggal</Label><Input type="date" value={formTanggal} onChange={(e) => setFormTanggal(e.target.value)} /></div>
+                  <div>
+                    <Label>Jenis</Label>
+                    <RadioGroup value={formJenis} onValueChange={(v) => setFormJenis(v as any)} className="flex gap-4 mt-1">
+                      <div className="flex items-center gap-2"><RadioGroupItem value="masuk" id="j-masuk" /><Label htmlFor="j-masuk">Masuk</Label></div>
+                      <div className="flex items-center gap-2"><RadioGroupItem value="keluar" id="j-keluar" /><Label htmlFor="j-keluar">Keluar</Label></div>
+                    </RadioGroup>
+                  </div>
+                  <div>
+                    <Label>Metode</Label>
+                    <RadioGroup value={formMetode} onValueChange={(v) => setFormMetode(v as any)} className="flex gap-4 mt-1">
+                      <div className="flex items-center gap-2"><RadioGroupItem value="tunai" id="m-tunai" /><Label htmlFor="m-tunai">Tunai</Label></div>
+                      <div className="flex items-center gap-2"><RadioGroupItem value="bank" id="m-bank" /><Label htmlFor="m-bank">Bank</Label></div>
+                    </RadioGroup>
+                  </div>
+                  <div>
+                    <Label>Kategori</Label>
+                    <Input value={formKategori} onChange={(e) => setFormKategori(e.target.value)} placeholder="Ketik kategori..." list="kategori-list" />
+                    <datalist id="kategori-list">
+                      {KATEGORI_SUGGESTIONS.map((k) => <option key={k} value={k} />)}
+                    </datalist>
+                  </div>
+                  <div><Label>Keterangan</Label><Textarea value={formKeterangan} onChange={(e) => setFormKeterangan(e.target.value)} /></div>
+                  <div><Label>Jumlah (Rp)</Label><Input type="number" value={formJumlah} onChange={(e) => setFormJumlah(e.target.value)} placeholder="0" /></div>
+                  <Button className="w-full" onClick={() => insertMutation.mutate()} disabled={insertMutation.isPending || !formJumlah}>
+                    {insertMutation.isPending ? "Menyimpan..." : "Simpan"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {/* Table */}
+          {isLoading ? <Skeleton className="h-48 w-full" /> : (
+            <div className="table-container">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">No</TableHead>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Jenis</TableHead>
+                    <TableHead>Metode</TableHead>
+                    <TableHead>Kategori</TableHead>
+                    <TableHead>Keterangan</TableHead>
+                    <TableHead className="text-right">Jumlah</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered?.length === 0 && (
+                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Belum ada transaksi</TableCell></TableRow>
+                  )}
+                  {filtered?.map((k, idx) => (
+                    <TableRow key={k.id}>
+                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell>{formatTanggal(k.tanggal)}</TableCell>
+                      <TableCell>
+                        <Badge className={k.jenis === "masuk" ? "bg-success/10 text-success border-success/20" : "bg-destructive/10 text-destructive border-destructive/20"}>
+                          {k.jenis}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="capitalize">{k.metode}</TableCell>
+                      <TableCell>{k.kategori ?? "-"}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{k.keterangan ?? "-"}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatRupiah(Number(k.jumlah))}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {/* Chart */}
+          {chartData.length > 0 && (
+            <Card>
+              <CardContent className="p-5">
+                <h3 className="font-semibold mb-4">Pemasukan vs Pengeluaran per Kategori</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" fontSize={12} />
+                    <YAxis fontSize={12} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}jt`} />
+                    <Tooltip formatter={(v: number) => formatRupiah(v)} />
+                    <Legend />
+                    <Bar dataKey="masuk" fill="hsl(142, 71%, 45%)" name="Masuk" />
+                    <Bar dataKey="keluar" fill="hsl(0, 84%, 60%)" name="Keluar" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="iuran" className="space-y-6">
+          {loadingIuran ? <Skeleton className="h-48 w-full" /> : (
+            <>
+              {/* Summary */}
+              <div className="flex gap-4 flex-wrap">
+                {["Belum Bayar", "DP", "Lunas"].map((status) => {
+                  // Simple heuristic: we don't have payment status field yet, show all as list
+                  return null;
+                })}
+              </div>
+              <div className="table-container">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nama</TableHead>
+                      <TableHead>Hewan</TableHead>
+                      <TableHead>Tipe</TableHead>
+                      <TableHead className="text-right">Nominal Iuran</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {shohibulIuran?.length === 0 && (
+                      <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Belum ada data</TableCell></TableRow>
+                    )}
+                    {shohibulIuran?.map((s) => {
+                      const h = s.hewan_qurban as any;
+                      return (
+                        <TableRow key={s.id}>
+                          <TableCell className="font-medium">{s.nama}</TableCell>
+                          <TableCell>{h?.nomor_urut ?? "-"} ({h?.jenis_hewan})</TableCell>
+                          <TableCell className="capitalize">{h?.tipe_kepemilikan}</TableCell>
+                          <TableCell className="text-right font-semibold">{formatRupiah(Number(h?.iuran_per_orang ?? 0))}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+export default KeuanganPage;

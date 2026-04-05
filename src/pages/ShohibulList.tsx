@@ -10,9 +10,11 @@ import { Link } from "react-router-dom";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { useAuth } from "@/hooks/useAuth";
 
 const ShohibulList = () => {
   const [search, setSearch] = useState("");
+  const { isAdmin } = useAuth();
 
   const { data, isLoading } = useQuery({
     queryKey: ["shohibul-list"],
@@ -37,9 +39,11 @@ const ShohibulList = () => {
           <h1 className="page-title">Shohibul Qurban</h1>
           <p className="page-subtitle">Daftar peserta qurban 1447H</p>
         </div>
-        <Link to="/shohibul/daftar">
-          <Button><Plus className="mr-2 h-4 w-4" /> Daftarkan</Button>
-        </Link>
+        {isAdmin() && (
+          <Link to="/shohibul/daftar">
+            <Button><Plus className="mr-2 h-4 w-4" /> Daftarkan</Button>
+          </Link>
+        )}
       </div>
 
       <div className="relative max-w-sm">

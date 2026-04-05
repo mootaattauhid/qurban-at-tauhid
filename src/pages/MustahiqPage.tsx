@@ -431,9 +431,12 @@ const MustahiqPage = () => {
             <DialogTitle>Scan Kupon QR</DialogTitle>
           </DialogHeader>
 
-          {scanState === "scanning" && (
-            <div id="qr-reader" key={scanKey} className="w-full" />
-          )}
+          <div
+            id="qr-reader"
+            key={scanKey}
+            className="w-full"
+            style={{ display: scanState === "scanning" ? "block" : "none" }}
+          />
 
           {scanState === "success" && scanResult && (
             <div className="flex flex-col items-center gap-3 py-4">

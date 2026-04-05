@@ -117,14 +117,26 @@ const MustahiqPage = () => {
     },
   });
 
+  const stoppingRef = useRef(false);
+
   const stopScanner = useCallback(async () => {
+    if (stoppingRef.current) return;
+    stoppingRef.current = true;
     try {
-      if (scannerRef.current) {
-        await scannerRef.current.stop();
-        scannerRef.current.clear();
+      const inst = scannerRef.current;
+      if (inst) {
         scannerRef.current = null;
+        try {
+          const state = inst.getState?.();
+          if (state === 2 /* SCANNING */) {
+            await inst.stop();
+          }
+        } catch (_) {}
+        try { inst.clear(); } catch (_) {}
       }
-    } catch (e) {}
+    } finally {
+      stoppingRef.current = false;
+    }
   }, []);
 
   const resetScanState = useCallback(() => {

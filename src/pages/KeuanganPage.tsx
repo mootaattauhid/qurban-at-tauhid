@@ -264,10 +264,11 @@ const KeuanganPage = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Cari keterangan..." className="pl-10 w-[200px]" value={searchKeterangan} onChange={(e) => setSearchKeterangan(e.target.value)} />
             </div>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" /> Tambah Transaksi</Button>
-              </DialogTrigger>
+            {isAdmin() && (
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button><Plus className="mr-2 h-4 w-4" /> Tambah Transaksi</Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Tambah Transaksi</DialogTitle></DialogHeader>
                 <div className="space-y-3">

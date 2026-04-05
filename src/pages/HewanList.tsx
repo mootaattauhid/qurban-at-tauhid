@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { formatRupiah } from "@/lib/qurban-utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useAuth } from "@/hooks/useAuth";
 
 const statusColors: Record<string, string> = {
   survei: "bg-warning/10 text-warning border-warning/20",
@@ -19,6 +20,7 @@ const statusColors: Record<string, string> = {
 const HewanList = () => {
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
 
   const { data: hewanList, isLoading } = useQuery({
     queryKey: ["hewan-list"],
@@ -51,7 +53,9 @@ const HewanList = () => {
           <h1 className="page-title">Hewan Qurban</h1>
           <p className="page-subtitle">Kelola data hewan qurban 1447H</p>
         </div>
-        <Link to="/hewan/tambah"><Button><Plus className="mr-2 h-4 w-4" /> Tambah Hewan</Button></Link>
+        {isAdmin() && (
+          <Link to="/hewan/tambah"><Button><Plus className="mr-2 h-4 w-4" /> Tambah Hewan</Button></Link>
+        )}
       </div>
 
       <div className="relative max-w-sm">
@@ -73,12 +77,12 @@ const HewanList = () => {
                 <TableHead>Harga</TableHead>
                 <TableHead>Kuota</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="w-16">Aksi</TableHead>
+                {isAdmin() && <TableHead className="w-16">Aksi</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered?.length === 0 && (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Belum ada data hewan</TableCell></TableRow>
+                <TableRow><TableCell colSpan={isAdmin() ? 8 : 7} className="text-center py-8 text-muted-foreground">Belum ada data hewan</TableCell></TableRow>
               )}
               {filtered?.map((hewan, idx) => {
                 const terisi = kuotaData?.[hewan.id] ?? 0;
@@ -98,11 +102,13 @@ const HewanList = () => {
                       </Badge>
                     </TableCell>
                     <TableCell><Badge variant="outline" className={statusColors[hewan.status] || ""}>{hewan.status}</Badge></TableCell>
-                    <TableCell>
-                      <Button size="sm" variant="ghost" onClick={() => navigate(`/hewan/${hewan.id}`)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+                    {isAdmin() && (
+                      <TableCell>
+                        <Button size="sm" variant="ghost" onClick={() => navigate(`/hewan/${hewan.id}`)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}

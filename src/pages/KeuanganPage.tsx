@@ -16,11 +16,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { formatRupiah, formatTanggal } from "@/lib/qurban-utils";
 import { Plus, Search, TrendingUp, TrendingDown, Wallet, CreditCard } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const KATEGORI_SUGGESTIONS = ["pembelian hewan", "operasional", "konsumsi", "perlengkapan", "iuran shohibul"];
 
 const KeuanganPage = () => {
+  const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [filterJenis, setFilterJenis] = useState("semua");
   const [filterMetode, setFilterMetode] = useState("semua");
@@ -262,10 +264,11 @@ const KeuanganPage = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Cari keterangan..." className="pl-10 w-[200px]" value={searchKeterangan} onChange={(e) => setSearchKeterangan(e.target.value)} />
             </div>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" /> Tambah Transaksi</Button>
-              </DialogTrigger>
+            {isAdmin() && (
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button><Plus className="mr-2 h-4 w-4" /> Tambah Transaksi</Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Tambah Transaksi</DialogTitle></DialogHeader>
                 <div className="space-y-3">
@@ -299,6 +302,7 @@ const KeuanganPage = () => {
                 </div>
               </DialogContent>
             </Dialog>
+            )}
           </div>
 
           {/* Table */}

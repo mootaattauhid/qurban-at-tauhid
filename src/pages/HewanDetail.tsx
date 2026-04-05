@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 import jsPDF from "jspdf";
 import type { Database } from "@/integrations/supabase/types";
+import { useAuth } from "@/hooks/useAuth";
 
 type BagianHewan = Database["public"]["Enums"]["bagian_hewan"];
 
@@ -34,6 +35,7 @@ const HewanDetail = () => {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
+  const { isAdmin } = useAuth();
 
   const { data: hewan, isLoading } = useQuery({
     queryKey: ["hewan-detail", id],
@@ -206,37 +208,41 @@ const HewanDetail = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={startEdit} disabled={editing}>
-              <Pencil className="mr-2 h-4 w-4" /> Edit
-            </Button>
+            {isAdmin() && (
+              <Button variant="outline" onClick={startEdit} disabled={editing}>
+                <Pencil className="mr-2 h-4 w-4" /> Edit
+              </Button>
+            )}
             <Button onClick={cetakDistribusi}>
               <Printer className="mr-2 h-4 w-4" /> Cetak
             </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Hapus Hewan?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {shohibulList && shohibulList.length > 0
-                      ? "Tidak bisa menghapus hewan yang sudah memiliki peserta terdaftar."
-                      : "Tindakan ini tidak bisa dibatalkan. Hewan akan dihapus permanen."}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Batal</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => deleteMutation.mutate()}
-                    disabled={!!(shohibulList && shohibulList.length > 0) || deleteMutation.isPending}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Hapus
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            {isAdmin() && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Hapus Hewan?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {shohibulList && shohibulList.length > 0
+                        ? "Tidak bisa menghapus hewan yang sudah memiliki peserta terdaftar."
+                        : "Tindakan ini tidak bisa dibatalkan. Hewan akan dihapus permanen."}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Batal</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => deleteMutation.mutate()}
+                      disabled={!!(shohibulList && shohibulList.length > 0) || deleteMutation.isPending}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Hapus
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </div>
       </div>
@@ -338,7 +344,7 @@ const HewanDetail = () => {
                       ))}
                     </div>
                   )}
-                  {shohibulList && shohibulList.length > 0 && (
+                  {isAdmin() && shohibulList && shohibulList.length > 0 && (
                     <div className="border-t pt-2 space-y-1">
                       <p className="text-xs text-muted-foreground mb-1">Toggle request:</p>
                       <div className="flex flex-wrap gap-1">

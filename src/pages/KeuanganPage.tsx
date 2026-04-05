@@ -302,6 +302,7 @@ const KeuanganPage = () => {
                 </div>
               </DialogContent>
             </Dialog>
+            )}
           </div>
 
           {/* Table */}

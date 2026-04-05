@@ -14,14 +14,15 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Printer, ScanLine } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { Plus, Search, Printer, ScanLine, Eye } from "lucide-react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { generateNomorKupon } from "@/lib/qurban-utils";
 import { QRCodeCanvas } from "qrcode.react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import type { Database } from "@/integrations/supabase/types";
+import { useAuth } from "@/hooks/useAuth";
 
 type KategoriMustahiq = Database["public"]["Enums"]["kategori_mustahiq"];
 
@@ -32,11 +33,12 @@ const MustahiqPage = () => {
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [showPreview, setShowPreview] = useState<string | null>(null);
   const [formNama, setFormNama] = useState("");
   const [formKategori, setFormKategori] = useState<KategoriMustahiq>("warga");
   const [formKeterangan, setFormKeterangan] = useState("");
   const [formPenyalur, setFormPenyalur] = useState("");
-  const kuponRef = useRef<HTMLDivElement>(null);
+  const { isAdmin } = useAuth();
 
   const { data: mustahiqList, isLoading } = useQuery({
     queryKey: ["mustahiq-list"],
@@ -123,42 +125,28 @@ const MustahiqPage = () => {
 
   const cetakKupon = async () => {
     if (!mustahiqList || mustahiqList.length === 0) return;
-    const doc = new jsPDF();
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
     const perPage = 4;
 
-    for (let i = 0; i < mustahiqList.length; i += perPage) {
-      if (i > 0) doc.addPage();
-      const batch = mustahiqList.slice(i, i + perPage);
+    for (let i = 0; i < mustahiqList.length; i++) {
+      const el = document.getElementById(`kupon-${mustahiqList[i].id}`);
+      if (!el) continue;
 
-      for (let j = 0; j < batch.length; j++) {
-        const m = batch[j];
-        const yOffset = j * 70 + 10;
+      el.style.display = "block";
+      const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff" });
+      el.style.display = "none";
 
-        doc.setDrawColor(150);
-        doc.rect(10, yOffset, 190, 65);
-
-        doc.setFontSize(10);
-        doc.text("Masjid At-Tauhid Pangkalpinang", 105, yOffset + 8, { align: "center" });
-        doc.setFontSize(8);
-        doc.text("Kupon Daging Qurban 1447H", 105, yOffset + 14, { align: "center" });
-
-        doc.setFontSize(14);
-        doc.text(m.nomor_kupon ?? "-", 105, yOffset + 25, { align: "center" });
-
-        doc.setFontSize(10);
-        doc.text(`Nama: ${m.nama}`, 20, yOffset + 35);
-        doc.text(`Kategori: ${m.kategori}`, 20, yOffset + 42);
-        doc.text(`Tahun: 1447H`, 20, yOffset + 49);
-
-        // QR placeholder note (actual QR in printed version)
-        doc.setFontSize(7);
-        doc.text(`QR: ${m.qr_data ?? m.nomor_kupon}`, 140, yOffset + 55);
-      }
+      const imgData = canvas.toDataURL("image/png");
+      const posInPage = i % perPage;
+      if (i > 0 && posInPage === 0) doc.addPage();
+      doc.addImage(imgData, "PNG", 10, posInPage * 70 + 10, 190, 65);
     }
 
     doc.save("kupon-mustahiq-1447H.pdf");
     toast.success("PDF kupon berhasil diunduh");
   };
+
+  const previewMustahiq = showPreview ? mustahiqList?.find((m) => m.id === showPreview) : null;
 
   const filtered = mustahiqList?.filter((m) =>
     m.nama.toLowerCase().includes(search.toLowerCase()) ||
@@ -183,9 +171,11 @@ const MustahiqPage = () => {
           <Button variant="outline" onClick={cetakKupon}>
             <Printer className="mr-2 h-4 w-4" /> Cetak Kupon
           </Button>
-          <Button onClick={() => setShowAdd(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Tambah
-          </Button>
+          {isAdmin() && (
+            <Button onClick={() => setShowAdd(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Tambah
+            </Button>
+          )}
         </div>
       </div>
 
@@ -208,12 +198,13 @@ const MustahiqPage = () => {
                 <TableHead>Nama</TableHead>
                 <TableHead>Kategori</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="w-12">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     Belum ada data mustahiq
                   </TableCell>
                 </TableRow>
@@ -232,12 +223,49 @@ const MustahiqPage = () => {
                       {m.status_kupon === "sudah_ambil" ? "Sudah Ambil" : "Belum Ambil"}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    <Button size="sm" variant="ghost" onClick={() => setShowPreview(m.id)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
       )}
+
+      {/* Hidden kupon elements for PDF rendering */}
+      <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
+        {mustahiqList?.map((m) => (
+          <div
+            key={m.id}
+            id={`kupon-${m.id}`}
+            style={{
+              display: "none",
+              width: "700px",
+              padding: "20px",
+              border: "2px solid #333",
+              borderRadius: "8px",
+              fontFamily: "sans-serif",
+              backgroundColor: "#fff",
+            }}
+          >
+            <div style={{ textAlign: "center", marginBottom: "8px" }}>
+              <div style={{ fontSize: "18px", fontWeight: "bold" }}>Kupon Daging Qurban 1447H</div>
+              <div style={{ fontSize: "13px", color: "#666" }}>Masjid At-Tauhid Pangkalpinang</div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: "14px" }}><strong>Nomor:</strong> {m.nomor_kupon}</div>
+                <div style={{ fontSize: "14px" }}><strong>Nama:</strong> {m.nama}</div>
+                <div style={{ fontSize: "14px" }}><strong>Kategori:</strong> {m.kategori}</div>
+              </div>
+              <QRCodeCanvas value={m.qr_data ?? m.nomor_kupon ?? m.id} size={100} />
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* Add Dialog */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
@@ -276,6 +304,29 @@ const MustahiqPage = () => {
               {addMutation.isPending ? "Menyimpan..." : "Simpan"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Kupon Preview Dialog */}
+      <Dialog open={!!showPreview} onOpenChange={() => setShowPreview(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Preview Kupon</DialogTitle>
+          </DialogHeader>
+          {previewMustahiq && (
+            <div className="space-y-4">
+              <div className="border rounded-lg p-4 text-center space-y-2">
+                <p className="font-bold text-lg">Kupon Daging Qurban 1447H</p>
+                <p className="text-sm text-muted-foreground">Masjid At-Tauhid Pangkalpinang</p>
+                <div className="flex justify-center py-2">
+                  <QRCodeCanvas value={previewMustahiq.qr_data ?? previewMustahiq.nomor_kupon ?? previewMustahiq.id} size={150} />
+                </div>
+                <p className="font-mono text-sm">{previewMustahiq.nomor_kupon}</p>
+                <p className="font-medium">{previewMustahiq.nama}</p>
+                <p className="text-sm capitalize text-muted-foreground">{previewMustahiq.kategori}</p>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

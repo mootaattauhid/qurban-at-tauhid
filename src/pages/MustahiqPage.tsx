@@ -14,8 +14,8 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Printer, ScanLine, Eye, FileUp, Download } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Plus, Search, Printer, ScanLine, Eye, FileUp, Download, CheckCircle2, XCircle } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { generateNomorKupon } from "@/lib/qurban-utils";
 import { QRCodeCanvas } from "qrcode.react";
@@ -27,6 +27,7 @@ import KuponTemplate from "@/components/KuponTemplate";
 import ImportExcelDialog from "@/components/ImportExcelDialog";
 
 type KategoriMustahiq = Database["public"]["Enums"]["kategori_mustahiq"];
+type ScanState = "scanning" | "success" | "error";
 
 const KATEGORI_OPTIONS: KategoriMustahiq[] = ["dhuafa", "warga", "jamaah", "shohibul_qurban", "bagian_tidak_direquest", "lainnya"];
 const VALID_KATEGORI = new Set(KATEGORI_OPTIONS);
@@ -42,7 +43,14 @@ const MustahiqPage = () => {
   const [formKategori, setFormKategori] = useState<KategoriMustahiq>("warga");
   const [formKeterangan, setFormKeterangan] = useState("");
   const [formPenyalur, setFormPenyalur] = useState("");
-  const { isAdmin } = useAuth();
+  const { isAdmin, hasRole } = useAuth();
+
+  // Scan states
+  const [scanState, setScanState] = useState<ScanState>("scanning");
+  const [scanResult, setScanResult] = useState<{ nama: string; nomor_kupon: string; kategori: string } | null>(null);
+  const [scanError, setScanError] = useState("");
+  const [scanKey, setScanKey] = useState(0);
+  const scannerRef = useRef<any>(null);
 
   const { data: mustahiqList, isLoading } = useQuery({
     queryKey: ["mustahiq-list"],
@@ -85,28 +93,48 @@ const MustahiqPage = () => {
     mutationFn: async (qrData: string) => {
       const { data: found } = await supabase
         .from("mustahiq")
-        .select("id, nama, status_kupon")
+        .select("id, nama, status_kupon, nomor_kupon, kategori")
         .eq("qr_data", qrData)
         .single();
       if (!found) throw new Error("Kupon tidak ditemukan");
-      if (found.status_kupon === "sudah_ambil") throw new Error(`${found.nama} sudah mengambil`);
+      if (found.status_kupon === "sudah_ambil") throw new Error(`${found.nama} sudah mengambil kupon ini`);
       const { error } = await supabase
         .from("mustahiq")
         .update({ status_kupon: "sudah_ambil" })
         .eq("id", found.id);
       if (error) throw error;
-      return found.nama;
+      return { nama: found.nama, nomor_kupon: found.nomor_kupon ?? "", kategori: found.kategori };
     },
-    onSuccess: (nama) => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["mustahiq-list"] });
-      toast.success(`${nama} — kupon berhasil di-scan!`);
+      setScanResult(result);
+      setScanState("success");
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => {
+      setScanError(err.message);
+      setScanState("error");
+    },
   });
+
+  const stopScanner = useCallback(async () => {
+    try {
+      if (scannerRef.current) {
+        await scannerRef.current.stop();
+        scannerRef.current.clear();
+        scannerRef.current = null;
+      }
+    } catch (e) {}
+  }, []);
+
+  const resetScanState = useCallback(() => {
+    setScanState("scanning");
+    setScanResult(null);
+    setScanError("");
+  }, []);
 
   // QR Scanner
   useEffect(() => {
-    if (!showScanner) return;
+    if (!showScanner || scanState !== "scanning") return;
     let scanner: any;
     import("html5-qrcode").then(({ Html5Qrcode }) => {
       scanner = new Html5Qrcode("qr-reader");
@@ -115,58 +143,68 @@ const MustahiqPage = () => {
         { fps: 10, qrbox: { width: 250, height: 250 } },
         (decoded: string) => {
           scanner.stop().then(() => {
-            setShowScanner(false);
+            scannerRef.current = null;
             scanMutation.mutate(decoded);
           });
         },
         () => {}
-      ).catch(() => toast.error("Tidak bisa mengakses kamera"));
+      ).then(() => {
+        scannerRef.current = scanner;
+      }).catch(() => toast.error("Tidak bisa mengakses kamera"));
     });
     return () => {
       scanner?.stop?.().catch(() => {});
+      scannerRef.current = null;
     };
-  }, [showScanner]);
+  }, [showScanner, scanState, scanKey]);
+
+  const handleScanAgain = () => {
+    resetScanState();
+    setScanKey((k) => k + 1);
+  };
+
+  const handleCloseScanDialog = (open: boolean) => {
+    if (!open) {
+      stopScanner();
+      resetScanState();
+    }
+    setShowScanner(open);
+  };
 
   const cetakKupon = async () => {
     if (!mustahiqList || mustahiqList.length === 0) return;
 
     const doc = new jsPDF({ unit: "mm", format: [210, 330], orientation: "portrait" });
+    const pageW = 190;
+    const marginX = 10;
+    const marginY = 10;
+    const gap = 5;
+    const pageH = 330;
 
-    const cols = 2;
-    const rows = 5;
-    const perPage = cols * rows;
-    const kuponW = 95;
-    const kuponH = 58;
-    const marginX = 5;
-    const marginY = 5;
-    const gapX = 5;
-    const gapY = 4;
+    let currentY = marginY;
+    let firstOnPage = true;
 
     for (let i = 0; i < mustahiqList.length; i++) {
       const el = document.getElementById(`kupon-${mustahiqList[i].id}`);
       if (!el) continue;
 
       el.style.display = "block";
-      const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+      const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true, width: 420, height: 160 });
       el.style.display = "none";
 
       const imgData = canvas.toDataURL("image/png");
-      const posInPage = i % perPage;
-      const col = posInPage % cols;
-      const row = Math.floor(posInPage / cols);
+      const ratio = canvas.height / canvas.width;
+      const imgH = pageW * ratio;
 
-      if (i > 0 && posInPage === 0) doc.addPage([210, 330]);
-
-      const x = marginX + col * (kuponW + gapX);
-      const y = marginY + row * (kuponH + gapY);
-      doc.addImage(imgData, "PNG", x, y, kuponW, kuponH);
-
-      if (row < rows - 1 && col === cols - 1) {
-        doc.setLineDashPattern([1, 1], 0);
-        doc.setDrawColor(180);
-        doc.setLineWidth(0.2);
-        doc.line(marginX, y + kuponH + gapY / 2, 210 - marginX, y + kuponH + gapY / 2);
+      if (!firstOnPage && currentY + imgH > pageH - marginY) {
+        doc.addPage([210, 330]);
+        currentY = marginY;
+        firstOnPage = true;
       }
+
+      doc.addImage(imgData, "PNG", marginX, currentY, pageW, imgH);
+      currentY += imgH + gap;
+      firstOnPage = false;
     }
 
     doc.save("kupon-mustahiq-1447H.pdf");
@@ -178,10 +216,13 @@ const MustahiqPage = () => {
     const el = document.getElementById(`kupon-${mustahiq.id}`);
     if (!el) return;
     el.style.display = "block";
-    const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff" });
+    const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff", width: 420, height: 160 });
     el.style.display = "none";
-    const doc = new jsPDF({ unit: "mm", format: [95, 58] });
-    doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, 95, 58);
+    const ratio = canvas.height / canvas.width;
+    const w = 95;
+    const h = w * ratio;
+    const doc = new jsPDF({ unit: "mm", format: [w, h] });
+    doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, w, h);
     doc.save(`kupon-${mustahiq.nomor_kupon ?? mustahiq.id}.pdf`);
   };
 
@@ -189,8 +230,8 @@ const MustahiqPage = () => {
     const currentCount = mustahiqList?.length ?? 0;
     const inserts = rows.map((r, i) => {
       const nomor = generateNomorKupon(currentCount + i + 1);
-      const kat = VALID_KATEGORI.has(r.kategori?.toLowerCase?.().trim()) 
-        ? r.kategori.toLowerCase().trim() as KategoriMustahiq 
+      const kat = VALID_KATEGORI.has(r.kategori?.toLowerCase?.().trim())
+        ? r.kategori.toLowerCase().trim() as KategoriMustahiq
         : "lainnya" as KategoriMustahiq;
       return {
         nama: String(r.nama).trim(),
@@ -226,9 +267,11 @@ const MustahiqPage = () => {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={() => setShowScanner(true)}>
-            <ScanLine className="mr-2 h-4 w-4" /> Scan QR
-          </Button>
+          {hasRole(["super_admin", "admin_kupon"]) && (
+            <Button variant="outline" onClick={() => { setScanKey((k) => k + 1); setShowScanner(true); }}>
+              <ScanLine className="mr-2 h-4 w-4" /> Scan QR
+            </Button>
+          )}
           <Button variant="outline" onClick={cetakKupon}>
             <Printer className="mr-2 h-4 w-4" /> Cetak Semua Kupon (PDF)
           </Button>
@@ -382,12 +425,40 @@ const MustahiqPage = () => {
       </Dialog>
 
       {/* QR Scanner Dialog */}
-      <Dialog open={showScanner} onOpenChange={setShowScanner}>
+      <Dialog open={showScanner} onOpenChange={handleCloseScanDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Scan Kupon QR</DialogTitle>
           </DialogHeader>
-          <div id="qr-reader" className="w-full" />
+
+          {scanState === "scanning" && (
+            <div id="qr-reader" key={scanKey} className="w-full" />
+          )}
+
+          {scanState === "success" && scanResult && (
+            <div className="flex flex-col items-center gap-3 py-4">
+              <CheckCircle2 className="h-16 w-16 text-green-500" />
+              <p className="text-xl font-bold">{scanResult.nama}</p>
+              <p className="font-mono text-sm text-muted-foreground">{scanResult.nomor_kupon}</p>
+              <Badge className="capitalize">{scanResult.kategori.replace(/_/g, " ")}</Badge>
+              <p className="text-sm text-green-600 font-medium">Kupon berhasil diverifikasi!</p>
+              <div className="flex gap-2 w-full mt-2">
+                <Button variant="outline" className="flex-1" onClick={handleScanAgain}>Scan Berikutnya</Button>
+                <Button className="flex-1" onClick={() => handleCloseScanDialog(false)}>Selesai</Button>
+              </div>
+            </div>
+          )}
+
+          {scanState === "error" && (
+            <div className="flex flex-col items-center gap-3 py-4">
+              <XCircle className="h-16 w-16 text-red-500" />
+              <p className="text-sm text-destructive text-center">{scanError}</p>
+              <div className="flex gap-2 w-full mt-2">
+                <Button variant="outline" className="flex-1" onClick={handleScanAgain}>Coba Lagi</Button>
+                <Button className="flex-1" onClick={() => handleCloseScanDialog(false)}>Tutup</Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

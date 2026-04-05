@@ -72,9 +72,9 @@ const KuponTemplate = ({ id, nomor_kupon, nama, kategori, qr_data, jenis_hewan }
       id={`kupon-${id}`}
       style={{
         display: "none",
-        width: "760px",
-        height: "220px",
-        padding: "14px 16px",
+        width: "420px",
+        height: "160px",
+        padding: "10px 12px",
         border: `2px solid ${theme.border}`,
         borderRadius: "8px",
         fontFamily: "sans-serif",
@@ -85,29 +85,29 @@ const KuponTemplate = ({ id, nomor_kupon, nama, kategori, qr_data, jenis_hewan }
     >
       <div style={{ display: "flex", height: "100%" }}>
         {/* Left area */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", paddingRight: "14px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
-            <span style={{ fontSize: "14px" }}>🕌</span>
-            <span style={{ fontSize: "11px", color: theme.accent, fontWeight: 600 }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", paddingRight: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "4px", marginBottom: "2px" }}>
+            <span style={{ fontSize: "11px" }}>🕌</span>
+            <span style={{ fontSize: "9px", color: theme.accent, fontWeight: 600 }}>
               Masjid At-Tauhid Pangkalpinang
             </span>
           </div>
-          <div style={{ fontSize: "15px", fontWeight: "bold", color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          <div style={{ fontSize: "11px", fontWeight: "bold", color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.5px" }}>
             KUPON DAGING QURBAN
           </div>
-          <div style={{ fontSize: "11px", color: "#888", marginBottom: "6px" }}>1447 H</div>
-          <div style={{ height: "2px", background: theme.border, width: "60px", marginBottom: "8px", borderRadius: "1px" }} />
-          <div style={{ fontFamily: "monospace", fontSize: "14px", fontWeight: "bold", color: theme.accent, marginBottom: "4px" }}>
+          <div style={{ fontSize: "8px", color: "#888", marginBottom: "4px" }}>1447 H</div>
+          <div style={{ height: "1.5px", background: theme.border, width: "40px", marginBottom: "5px", borderRadius: "1px" }} />
+          <div style={{ fontFamily: "monospace", fontSize: "11px", fontWeight: "bold", color: theme.accent, marginBottom: "2px" }}>
             {nomor_kupon ?? "-"}
           </div>
-          <div style={{ fontSize: "13px", color: "#333", marginBottom: "6px" }}>{nama}</div>
+          <div style={{ fontSize: "10px", color: "#333", marginBottom: "4px" }}>{nama}</div>
           <div>
             <span style={{
               display: "inline-block",
               background: "#f0f0f0",
-              padding: "2px 8px",
-              borderRadius: "4px",
-              fontSize: "10px",
+              padding: "1px 6px",
+              borderRadius: "3px",
+              fontSize: "8px",
               color: "#555",
               textTransform: "capitalize",
             }}>
@@ -117,19 +117,19 @@ const KuponTemplate = ({ id, nomor_kupon, nama, kategori, qr_data, jenis_hewan }
         </div>
 
         {/* Separator */}
-        <div style={{ width: "1px", background: theme.border, opacity: 0.4, margin: "8px 0" }} />
+        <div style={{ width: "1px", background: theme.border, opacity: 0.4, margin: "4px 0" }} />
 
         {/* Right area */}
-        <div style={{ width: "140px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingLeft: "14px" }}>
+        <div style={{ width: "100px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingLeft: "10px" }}>
           {detected === "kambing" ? (
             <KambingSVG color={theme.animalColor} />
           ) : detected === "sapi" ? (
             <SapiSVG color={theme.animalColor} />
           ) : (
-            <div style={{ width: "70px", height: "55px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "30px" }}>🐄</div>
+            <div style={{ width: "40px", height: "30px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>🐄</div>
           )}
-          <div style={{ marginTop: "6px" }}>
-            <QRCodeCanvas value={qr_data ?? nomor_kupon ?? id} size={90} level="M" includeMargin={false} />
+          <div style={{ marginTop: "4px" }}>
+            <QRCodeCanvas value={qr_data ?? nomor_kupon ?? id} size={65} level="M" includeMargin={false} style={{ display: "block" }} />
           </div>
         </div>
       </div>

@@ -370,12 +370,32 @@ const MustahiqPage = () => {
                   <TableCell className="font-medium">{m.nama}</TableCell>
                   <TableCell className="capitalize">{m.kategori}</TableCell>
                   <TableCell>
-                    <Badge
-                      variant={m.status_kupon === "sudah_ambil" ? "default" : "outline"}
-                      className={m.status_kupon === "sudah_ambil" ? "bg-success/10 text-success border-success/20" : ""}
-                    >
-                      {m.status_kupon === "sudah_ambil" ? "Sudah Ambil" : "Belum Ambil"}
-                    </Badge>
+                    {hasRole(["super_admin", "admin_kupon"]) ? (
+                      <button
+                        onClick={() => toggleStatusMutation.mutate({ id: m.id, currentStatus: m.status_kupon })}
+                        disabled={toggleStatusMutation.isPending}
+                        title={m.status_kupon === "sudah_ambil" ? "Klik untuk batalkan" : "Klik untuk tandai sudah ambil"}
+                        className="cursor-pointer"
+                      >
+                        <Badge
+                          variant={m.status_kupon === "sudah_ambil" ? "default" : "outline"}
+                          className={
+                            m.status_kupon === "sudah_ambil"
+                              ? "bg-success/10 text-success border-success/20 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-colors"
+                              : "hover:bg-success/10 hover:text-success hover:border-success/20 transition-colors"
+                          }
+                        >
+                          {m.status_kupon === "sudah_ambil" ? "Sudah Ambil" : "Belum Ambil"}
+                        </Badge>
+                      </button>
+                    ) : (
+                      <Badge
+                        variant={m.status_kupon === "sudah_ambil" ? "default" : "outline"}
+                        className={m.status_kupon === "sudah_ambil" ? "bg-success/10 text-success border-success/20" : ""}
+                      >
+                        {m.status_kupon === "sudah_ambil" ? "Sudah Ambil" : "Belum Ambil"}
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Button size="sm" variant="ghost" onClick={() => setShowPreview(m.id)}>
